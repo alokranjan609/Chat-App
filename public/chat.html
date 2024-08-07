@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Chat</h1>
+    <div id="loggedInUser"></div>
+    <div id="chatWith"></div>
+    <div id="messages"></div>
+    <input id="messageInput" type="text" placeholder="Type a message...">
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    let socket;
+    let username;
+    let targetUser;
+
+    function setupPage() {
+      socket = new WebSocket('ws://localhost:8080');
+
+      const params = new URLSearchParams(window.location.search);
+      username = params.get('username');
+      targetUser = params.get('target');
+
+      if (!username || !targetUser) {
+        alert('Username or target user is not defined');
+        return;
+      }
+
+      socket.addEventListener('open', function (event) {
+        socket.send(JSON.stringify({ type: 'login', username: username }));
+      });
+
+      socket.addEventListener('message', function (event) {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'message') {
+          const messages = document.getElementById('messages');
+          const message = document.createElement('div');
+          message.classList.add('message');
+          message.classList.add(data.from === username ? 'you' : 'other');
+          message.textContent = `${data.from}: ${data.message}`;
+          messages.appendChild(message);
+          messages.scrollTop = messages.scrollHeight; // Auto-scroll to the bottom
+        } else if (data.type === 'error') {
+          alert(data.message);
+        }
+      });
+
+      socket.addEventListener('close', function (event) {
+        alert('Disconnected from server');
+      });
+
+      document.getElementById('loggedInUser').textContent = `Logged in as: ${username}`;
+      document.getElementById('chatWith').textContent = `Chatting with: ${targetUser}`;
+    }
+
+    function sendMessage() {
+      const message = document.getElementById('messageInput').value;
+
+      if (!message) {
+        alert('Please enter a message');
+        return;
+      }
+
+      socket.send(JSON.stringify({
+        type: 'message',
+        target: targetUser,
+        message: message
+      }));
+
+      const messages = document.getElementById('messages');
+      const messageElement = document.createElement('div');
+      messageElement.classList.add('message', 'you');
+      messageElement.textContent = `You: ${message}`;
+      messages.appendChild(messageElement);
+      messages.scrollTop = messages.scrollHeight; // Auto-scroll to the bottom
+
+      document.getElementById('messageInput').value = '';
+    }
+
+    setupPage();
+  </script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Select User</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Online Users</h1>
+    <div id="loggedInUser"></div>
+    <div id="usersList">
+      <div id="noUsersMessage" style="display: none;">No other users are online.</div>
+    </div>
+  </div>
+
+  <script>
+    let socket;
+    let username;
+
+    function setupPage() {
+      socket = new WebSocket('ws://localhost:8080');
+
+      // Extract username from URL parameters
+      const params = new URLSearchParams(window.location.search);
+      username = params.get('username');
+
+      if (!username) {
+        alert('Username is not defined');
+        return;
+      }
+
+      socket.addEventListener('open', function (event) {
+        socket.send(JSON.stringify({ type: 'login', username: username }));
+      });
+
+      socket.addEventListener('message', function (event) {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'users') {
+          updateUsersList(data.users);
+        } else if (data.type === 'login' && data.success) {
+          document.getElementById('loggedInUser').textContent = `Logged in as: ${username}`;
+        }
+      });
+
+      socket.addEventListener('close', function (event) {
+        alert('Disconnected from server');
+      });
+    }
+
+    function updateUsersList(users) {
+      const usersList = document.getElementById('usersList');
+      const noUsersMessage = document.getElementById('noUsersMessage');
+
+      // Remove all existing user elements
+      usersList.querySelectorAll('.user-item').forEach(item => item.remove());
+
+      // Check if there are other users
+      const otherUsers = users.filter(user => user !== username);
+      
+      if (otherUsers.length === 0) {
+        noUsersMessage.style.display = 'block'; // Show no users message
+      } else {
+        noUsersMessage.style.display = 'none'; // Hide no users message
+        otherUsers.forEach(user => {
+          const userElement = document.createElement('div');
+          userElement.textContent = user;
+          userElement.className = 'user-item';
+          userElement.style.cursor = 'pointer';
+          userElement.onclick = () => selectUser(user);
+          usersList.appendChild(userElement);
+        });
+      }
+    }
+
+    function selectUser(user) {
+      window.location.href = `chat.html?username=${encodeURIComponent(username)}&target=${encodeURIComponent(user)}`;
+    }
+
+    setupPage();
+  </script>
+</body>
+</html>
